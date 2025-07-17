@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Tareas y Calendario</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            max-width: 1200px;
+            margin: 40px auto;
+            background-color: #ffffff;
+            padding: 32px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+        @media (min-width: 768px) {
+            .container {
+                flex-direction: row;
+            }
+        }
+        .task-section, .calendar-section {
+            flex: 1;
+            padding: 24px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            background-color: #fdfdfd;
+        }
+        h2 {
+            color: #1a73e8;
+            margin-bottom: 20px;
+            font-size: 1.75rem;
+            font-weight: 600;
+        }
+        input[type="text"], input[type="number"] {
+            width: calc(100% - 24px);
+            padding: 12px;
+            margin-bottom: 16px;
+            border: 1px solid #c0c0c0;
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+        input[type="text"]:focus, input[type="number"]:focus {
+            outline: none;
+            border-color: #1a73e8;
+            box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.2);
+        }
+        button {
+            padding: 12px 20px;
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+        button:hover {
+            background-color: #1565c0;
+            transform: translateY(-1px);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        ul {
+            list-style: none;
+            padding: 0;
+            margin-top: 20px;
+        }
+        li {
+            background-color: #f0f8ff;
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            border: 1px solid #d0e0f0;
+            transition: background-color 0.2s;
+        }
+        li.completed {
+            text-decoration: line-through;
+            color: #888;
+            background-color: #e6f0fa;
+        }
+        li .task-content {
+            display: flex;
+            align-items: center;
+            flex-grow: 1;
+        }
+        li .task-actions {
+            display: flex;
+            align-items: center;
+            margin-left: auto; /* Pushes buttons to the right */
+        }
+        li .task-text {
+            flex-grow: 1;
+            margin-left: 8px;
+        }
+        li .task-duration {
+            font-size: 0.85rem;
+            color: #555;
+            margin-left: 10px;
+            white-space: nowrap; /* Prevent duration from wrapping */
+        }
+        li input[type="checkbox"] {
+            margin-right: 8px;
+            min-width: 18px;
+            min-height: 18px;
+            cursor: pointer;
+        }
+        li button {
+            background-color: #dc3545;
+            padding: 6px 12px;
+            font-size: 0.875rem;
+            border-radius: 4px;
+            margin-left: 8px; /* Spacing between buttons */
+        }
+        li button:hover {
+            background-color: #c82333;
+        }
+
+        /* Calendario */
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #333;
+        }
+        .calendar-header button {
+            background-color: #e0e0e0;
+            color: #333;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        .calendar-header button:hover {
+            background-color: #d0d0d0;
+        }
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 6px;
+            text-align: center;
+        }
+        .day-name {
+            font-weight: bold;
+            background-color: #e9ecef;
+            padding: 10px 0;
+            border-radius: 6px;
+            color: #555;
+            font-size: 0.9rem;
+        }
+        .day {
+            padding: 12px 0;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            cursor: pointer;
+            position: relative;
+            transition: background-color 0.2s, border-color 0.2s;
+            font-size: 0.95rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 60px; /* Ensure consistent height for days */
+        }
+        .day.current-month {
+            background-color: #ffffff;
+        }
+        .day.other-month {
+            color: #aaa;
+            background-color: #f8f8f8;
+            cursor: default;
+        }
+        .day.selected {
+            background-color: #cce0ff;
+            border-color: #1a73e8;
+            font-weight: bold;
+        }
+        .day.today {
+            background-color: #e0f2f7;
+            border-color: #007bff;
+            font-weight: bold;
+        }
+        .day.holiday {
+            background-color: #ffebeb; /* Rojo claro para días festivos */
+            font-weight: bold;
+            color: #d32f2f; /* Rojo más oscuro para el texto */
+            border-color: #ef9a9a;
+        }
+        .day.has-tasks::after {
+            content: '';
+            display: block;
+            width: 7px;
+            height: 7px;
+            background-color: #1a73e8;
+            border-radius: 50%;
+            position: absolute;
+            bottom: 5px;
+            right: 5px; /* Position dot on the bottom right */
+        }
+        .day:not(.other-month):hover {
+            background-color: #eaf5ff;
+            border-color: #a7d9ff;
+        }
+        .message-box {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+            border-radius: 6px;
+            padding: 10px 15px;
+            margin-bottom: 15px;
+            text-align: center;
+            font-size: 0.9rem;
+            display: none; /* Hidden by default */
+        }
+        .no-tasks-message {
+            text-align: center;
+            color: #777;
+            margin-top: 20px;
+            font-style: italic;
+        }
+        .total-time-display {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #e9f5ff;
+            border: 1px solid #cce0ff;
+            border-radius: 6px;
+            font-weight: bold;
+            color: #0056b3;
+            text-align: center;
+        }
+        .weather-info {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e0f7fa; /* Light blue background */
+            border: 1px solid #b2ebf2;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-size: 1rem;
+            color: #006064;
+        }
+        .weather-info.loading {
+            text-align: center;
+            color: #555;
+            font-style: italic;
+        }
+        .weather-info img {
+            width: 50px;
+            height: 50px;
+        }
+        .weather-details {
+            flex-grow: 1;
+        }
+        .weather-details p {
+            margin: 0;
+            line-height: 1.4;
+        }
+        .weather-details .temp {
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="task-section rounded-lg shadow-md">
+            <h2 class="text-2xl mb-4">Tareas para la obra de Azuqueca de Henares (<span id="selectedDateDisplay" class="font-bold"></span>)</h2>
+            <div id="messageBox" class="message-box"></div>
+
+            <div id="weatherInfo" class="weather-info">
+                Cargando previsión del tiempo...
+            </div>
+
+            <input type="text" id="newTaskInput" placeholder="Añadir nueva tarea..." class="w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <input type="number" id="estimatedDurationInput" placeholder="Duración estimada (horas, opcional)" class="w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mt-2">
+            <button onclick="addTask()" class="w-full bg-blue-600 text-white p-3 rounded-md hover:bg-blue-700 transition mt-4">Añadir Tarea</button>
+            <ul id="taskList" class="mt-6">
+                <!-- Las tareas se cargarán aquí -->
+            </ul>
+            <p id="noTasksMessage" class="no-tasks-message hidden">No hay tareas para este día o este día no es Viernes, Sábado, Domingo o festivo.</p>
+            <div id="totalEstimatedTime" class="total-time-display hidden"></div>
+        </div>
+
+        <div class="calendar-section rounded-lg shadow-md">
+            <div class="calendar-header">
+                <button onclick="prevMonth()" class="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300 transition">&lt; Anterior</button>
+                <span id="currentMonthYear" class="text-xl font-semibold"></span>
+                <button onclick="nextMonth()" class="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300 transition">Siguiente &gt;</button>
+            </div>
+            <div class="calendar-grid">
+                <div class="day-name">Lun</div>
+                <div class="day-name">Mar</div>
+                <div class="day-name">Mié</div>
+                <div class="day-name">Jue</div>
+                <div class="day-name">Vie</div>
+                <div class="day-name">Sáb</div>
+                <div class="day-name">Dom</div>
+                <!-- Los días del calendario se cargarán aquí -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let currentMonth = new Date().getMonth();
+        let currentYear = new Date().getFullYear();
+        let selectedDate = new Date(); // Default to current date
+        let tasks = []; // Array to store all tasks
+
+        // Coordinates for Azuqueca de Henares (approximate)
+        const AZUQUECA_LAT = 40.56;
+        const AZUQUECA_LON = -3.26;
+
+        // Example holidays for Spain (2025)
+        // Format: 'YYYY-MM-DD'
+        const holidays = [
+            '2025-01-01', // Año Nuevo
+            '2025-01-06', // Reyes Magos
+            '2025-04-18', // Viernes Santo (ejemplo, puede variar)
+            '2025-05-01', // Día del Trabajo
+            '2025-08-15', // Asunción de la Virgen
+            '2025-10-12', // Fiesta Nacional de España
+            '2025-11-01', // Todos los Santos
+            '2025-12-06', // Día de la Constitución
+            '2025-12-08', // Inmaculada Concepción
+            '2025-12-25'  // Navidad
+        ];
+
+        // WMO Weather Interpretation Codes (simplified mapping) for Open-Meteo
+        const weatherCodeMap = {
+            0: { description: 'Despejado', icon: '☀️' },
+            1: { description: 'Principalmente despejado', icon: '🌤️' },
+            2: { description: 'Parcialmente nublado', icon: '⛅' },
+            3: { description: 'Nublado', icon: '☁️' },
+            45: { description: 'Niebla', icon: '🌫️' },
+            48: { description: 'Niebla con cencellada', icon: '🌫️' },
+            51: { description: 'Llovizna ligera', icon: '🌧️' },
+            53: { description: 'Llovizna moderada', icon: '🌧️' },
+            55: { description: 'Llovizna densa', icon: '🌧️' },
+            56: { description: 'Llovizna helada ligera', icon: '🧊🌧️' },
+            57: { description: 'Llovizna helada densa', icon: '🧊🌧️' },
+            61: { description: 'Lluvia ligera', icon: '☔' },
+            63: { description: 'Lluvia moderada', icon: '☔' },
+            65: { description: 'Lluvia intensa', icon: '☔' },
+            66: { description: 'Lluvia helada ligera', icon: '🧊☔' },
+            67: { description: 'Lluvia helada intensa', icon: '🧊☔' },
+            71: { description: 'Nieve ligera', icon: '🌨️' },
+            73: { description: 'Nieve moderada', icon: '🌨️' },
+            75: { description: 'Nieve intensa', icon: '🌨️' },
+            77: { description: 'Granos de nieve', icon: '🌨️' },
+            80: { description: 'Chubascos ligeros', icon: '🌦️' },
+            81: { description: 'Chubascos moderados', icon: '🌦️' },
+            82: { description: 'Chubascos violentos', icon: '⛈️' },
+            85: { description: 'Chubascos de nieve ligeros', icon: '🌨️' },
+            86: { description: 'Chubascos de nieve intensos', icon: '🌨️' },
+            95: { description: 'Tormenta', icon: '⚡' },
+            96: { description: 'Tormenta con granizo ligero', icon: '⛈️' },
+            99: { description: 'Tormenta con granizo intenso', icon: '⛈️' },
+            // Default for unknown codes
+            'default': { description: 'Condición desconocida', icon: '❓' }
+        };
+
+        // Function to load tasks from localStorage
+        function loadTasks() {
+            const storedTasks = localStorage.getItem('tasks');
+            if (storedTasks) {
+                tasks = JSON.parse(storedTasks);
+            } else {
+                tasks = [];
+            }
+        }
+
+        // Function to save tasks to localStorage
+        function saveTasks() {
+            localStorage.setItem('tasks', JSON.stringify(tasks));
+        }
+
+        // Function to format a date to 'YYYY-MM-DD'
+        function formatDate(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        // Function to check if a date is a Friday, Saturday, Sunday, or a holiday
+        function isValidTaskDay(date) {
+            const dayOfWeek = date.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+            const isWeekend = (dayOfWeek === 5 || dayOfWeek === 6 || dayOfWeek === 0); // Friday, Saturday, Sunday
+            const isHoliday = holidays.includes(formatDate(date));
+            return isWeekend || isHoliday;
+        }
+
+        // Function to display a message to the user
+        function showMessage(message, type = 'warning') {
+            const messageBox = document.getElementById('messageBox');
+            messageBox.textContent = message;
+            messageBox.className = `message-box ${type === 'error' ? 'bg-red-100 text-red-700 border-red-200' : 'bg-yellow-100 text-yellow-700 border-yellow-200'}`;
+            messageBox.style.display = 'block';
+            setTimeout(() => {
+                messageBox.style.display = 'none';
+            }, 3000); // Hide after 3 seconds
+        }
+
+        // Function to fetch weather data for a given date using Open-Meteo
+        async function fetchWeatherData(date) {
+            const weatherInfoDiv = document.getElementById('weatherInfo');
+            weatherInfoDiv.innerHTML = 'Cargando previsión del tiempo...';
+            weatherInfoDiv.classList.add('loading');
+
+            const formattedDate = formatDate(date);
+            const today = formatDate(new Date());
+
+            // Open-Meteo provides up to 16 days forecast.
+            // Check if the selected date is within the forecast range from today.
+            const todayDate = new Date();
+            todayDate.setHours(0, 0, 0, 0); // Normalize to start of day
+            const selectedDateNormalized = new Date(date);
+            selectedDateNormalized.setHours(0, 0, 0, 0); // Normalize to start of day
+
+            const diffTime = selectedDateNormalized.getTime() - todayDate.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+
+            // Open-Meteo's free forecast is typically for a limited number of days (e.g., 16 days from today).
+            // If the selected date is more than 16 days in the future, or in the past, it won't have forecast data.
+            if (diffDays < 0 || diffDays > 16) { 
+                renderWeather(null, 'Previsión del tiempo no disponible para esta fecha (fuera del rango de 16 días).');
+                weatherInfoDiv.classList.remove('loading');
+                return;
+            }
+
+            const apiUrl = `https://api.open-meteo.com/v1/forecast?latitude=${AZUQUECA_LAT}&longitude=${AZUQUECA_LON}&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=Europe%2FMadrid&start_date=${formattedDate}&end_date=${formattedDate}`;
+
+            try {
+                const response = await fetch(apiUrl);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                
+                if (data.daily && data.daily.time && data.daily.time.length > 0) {
+                    const daily = data.daily;
+                    const minTemp = daily.temperature_2m_min[0];
+                    const maxTemp = daily.temperature_2m_max[0];
+                    const weatherCode = daily.weathercode[0];
+                    const weatherInfo = weatherCodeMap[weatherCode] || weatherCodeMap['default'];
+
+                    renderWeather({
+                        minTemp: minTemp.toFixed(1),
+                        maxTemp: maxTemp.toFixed(1),
+                        description: weatherInfo.description,
+                        icon: weatherInfo.icon
+                    });
+                } else {
+                    renderWeather(null, 'Previsión del tiempo no disponible para este día.');
+                }
+
+            } catch (error) {
+                console.error('Error fetching weather data:', error);
+                renderWeather(null, 'No se pudo obtener la previsión del tiempo.');
+                showMessage('Error al obtener la previsión del tiempo.', 'error');
+            } finally {
+                weatherInfoDiv.classList.remove('loading');
+            }
+        }
+
+        // Function to render weather information
+        function renderWeather(weatherData, message = '') {
+            const weatherInfoDiv = document.getElementById('weatherInfo');
+            if (weatherData) {
+                weatherInfoDiv.innerHTML = `
+                    <span class="text-3xl">${weatherData.icon}</span>
+                    <div class="weather-details">
+                        <p class="temp">Temp: ${weatherData.minTemp}°C / ${weatherData.maxTemp}°C</p>
+                        <p>${weatherData.description}</p>
+                    </div>
+                `;
+            } else {
+                weatherInfoDiv.innerHTML = message || 'Previsión del tiempo no disponible.';
+            }
+        }
+
+        // Function to render the calendar
+        function renderCalendar() {
+            const calendarGrid = document.querySelector('.calendar-grid');
+            const currentMonthYearSpan = document.getElementById('currentMonthYear');
+            calendarGrid.innerHTML = `
+                <div class="day-name">Lun</div>
+                <div class="day-name">Mar</div>
+                <div class="day-name">Mié</div>
+                <div class="day-name">Jue</div>
+                <div class="day-name">Vie</div>
+                <div class="day-name">Sáb</div>
+                <div class="day-name">Dom</div>
+            `; // Reset calendar grid, keeping day names
+
+            const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
+            const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0);
+            const daysInMonth = lastDayOfMonth.getDate();
+
+            // Calculate the day of the week for the first day of the month (0 = Sunday, 1 = Monday, etc.)
+            // Adjust so that Monday is 0 and Sunday is 6
+            let startDay = firstDayOfMonth.getDay();
+            startDay = startDay === 0 ? 6 : startDay - 1; // Convert Sunday (0) to 6, and the rest -1
+
+            currentMonthYearSpan.textContent = new Date(currentYear, currentMonth).toLocaleString('es-ES', { month: 'long', year: 'numeric' });
+
+            // Fill days from the previous month
+            const prevMonthLastDay = new Date(currentYear, currentMonth, 0).getDate();
+            for (let i = startDay - 1; i >= 0; i--) {
+                const dayDiv = document.createElement('div');
+                dayDiv.classList.add('day', 'other-month');
+                dayDiv.textContent = prevMonthLastDay - i;
+                calendarGrid.appendChild(dayDiv);
+            }
+
+            // Fill days of the current month
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dayDiv = document.createElement('div');
+                dayDiv.classList.add('day', 'current-month');
+                dayDiv.textContent = day;
+
+                const fullDate = new Date(currentYear, currentMonth, day);
+                const formattedDate = formatDate(fullDate);
+
+                // Mark current day
+                if (formattedDate === formatDate(new Date())) {
+                    dayDiv.classList.add('today');
+                }
+
+                // Mark selected day
+                if (formattedDate === formatDate(selectedDate)) {
+                    dayDiv.classList.add('selected');
+                }
+
+                // Mark holidays
+                if (holidays.includes(formattedDate)) {
+                    dayDiv.classList.add('holiday');
+                }
+
+                // Mark days with tasks
+                const hasTasks = tasks.some(task => task.date === formattedDate);
+                if (hasTasks) {
+                    dayDiv.classList.add('has-tasks');
+                }
+
+                dayDiv.dataset.date = formattedDate;
+                dayDiv.addEventListener('click', () => selectDate(fullDate));
+                calendarGrid.appendChild(dayDiv);
+            }
+
+            // Fill days from the next month to complete the grid
+            const totalDaysDisplayed = startDay + daysInMonth;
+            const remainingDays = 42 - totalDaysDisplayed; // 6 weeks * 7 days = 42 cells
+            for (let i = 1; i <= remainingDays; i++) {
+                const dayDiv = document.createElement('div');
+                dayDiv.classList.add('day', 'other-month');
+                dayDiv.textContent = i;
+                calendarGrid.appendChild(dayDiv);
+            }
+        }
+
+        // Function to select a date
+        function selectDate(date) {
+            selectedDate = date;
+            document.getElementById('selectedDateDisplay').textContent = selectedDate.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            renderCalendar(); // Re-render calendar to update selection
+            renderTasks(); // Render tasks for the selected date
+            fetchWeatherData(selectedDate); // Fetch weather for the selected date
+        }
+
+        // Function to change to the previous month
+        function prevMonth() {
+            currentMonth--;
+            if (currentMonth < 0) {
+                currentMonth = 11;
+                currentYear--;
+            }
+            renderCalendar();
+            // After changing month, re-select the same day if possible, or the 1st of the month
+            const newDate = new Date(currentYear, currentMonth, Math.min(selectedDate.getDate(), new Date(currentYear, currentMonth + 1, 0).getDate()));
+            selectDate(newDate);
+        }
+
+        // Function to change to the next month
+        function nextMonth() {
+            currentMonth++;
+            if (currentMonth > 11) {
+                currentMonth = 0;
+                currentYear++;
+            }
+            renderCalendar();
+            // After changing month, re-select the same day if possible, or the 1st of the month
+            const newDate = new Date(currentYear, currentMonth, Math.min(selectedDate.getDate(), new Date(currentYear, currentMonth + 1, 0).getDate()));
+            selectDate(newDate);
+        }
+
+        // Function to render tasks for the selected date
+        function renderTasks() {
+            const taskList = document.getElementById('taskList');
+            const noTasksMessage = document.getElementById('noTasksMessage');
+            const totalEstimatedTimeDiv = document.getElementById('totalEstimatedTime');
+            taskList.innerHTML = ''; // Clear current list
+            totalEstimatedTimeDiv.classList.add('hidden'); // Hide total time by default
+
+            const formattedSelectedDate = formatDate(selectedDate);
+
+            // Filter tasks only if the selected day is a valid task day
+            if (isValidTaskDay(selectedDate)) {
+                const tasksForSelectedDate = tasks.filter(task => task.date === formattedSelectedDate);
+                let totalDuration = 0;
+
+                if (tasksForSelectedDate.length === 0) {
+                    noTasksMessage.classList.remove('hidden');
+                    noTasksMessage.textContent = 'No hay tareas para este día.';
+                } else {
+                    noTasksMessage.classList.add('hidden');
+                    tasksForSelectedDate.forEach(task => {
+                        const listItem = document.createElement('li');
+                        listItem.classList.add('flex', 'items-center', 'p-3', 'mb-2', 'bg-blue-50', 'rounded-md', 'shadow-sm');
+                        if (task.completed) {
+                            listItem.classList.add('completed');
+                        }
+
+                        // Checkbox for completion
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.checked = task.completed;
+                        checkbox.addEventListener('change', () => toggleTaskComplete(task.id));
+
+                        // Task content (text and duration)
+                        const taskContentDiv = document.createElement('div');
+                        taskContentDiv.classList.add('task-content');
+
+                        const taskTextSpan = document.createElement('span');
+                        taskTextSpan.textContent = task.text;
+                        taskTextSpan.classList.add('task-text');
+
+                        const taskDurationSpan = document.createElement('span');
+                        if (task.estimatedDuration) {
+                            taskDurationSpan.textContent = `(${task.estimatedDuration}h)`;
+                            taskDurationSpan.classList.add('task-duration');
+                            totalDuration += parseFloat(task.estimatedDuration);
+                        }
+
+                        taskContentDiv.appendChild(checkbox);
+                        taskContentDiv.appendChild(taskTextSpan);
+                        if (task.estimatedDuration) {
+                            taskContentDiv.appendChild(taskDurationSpan);
+                        }
+
+                        // Task actions (delete button)
+                        const taskActionsDiv = document.createElement('div');
+                        taskActionsDiv.classList.add('task-actions');
+
+                        const deleteButton = document.createElement('button');
+                        deleteButton.textContent = 'Eliminar';
+                        deleteButton.classList.add('bg-red-500', 'hover:bg-red-600', 'text-white', 'px-3', 'py-1', 'rounded-md', 'transition');
+                        deleteButton.onclick = () => deleteTask(task.id);
+
+                        taskActionsDiv.appendChild(deleteButton);
+
+                        listItem.appendChild(taskContentDiv);
+                        listItem.appendChild(taskActionsDiv);
+                        taskList.appendChild(listItem);
+                    });
+
+                    // Display total estimated time
+                    if (totalDuration > 0) {
+                        totalEstimatedTimeDiv.classList.remove('hidden');
+                        totalEstimatedTimeDiv.textContent = `Tiempo total estimado para hoy: ${totalDuration.toFixed(1)} horas`;
+                    } else {
+                        totalEstimatedTimeDiv.classList.add('hidden');
+                    }
+                }
+            } else {
+                // If not a valid task day, hide tasks and show specific message
+                noTasksMessage.classList.remove('hidden');
+                noTasksMessage.textContent = 'Las tareas solo se pueden añadir y ver los Viernes, Sábados, Domingos y días festivos.';
+                totalEstimatedTimeDiv.classList.add('hidden'); // Ensure total time is hidden
+            }
+        }
+
+        // Function to add a new task
+        function addTask() {
+            const newTaskInput = document.getElementById('newTaskInput');
+            const estimatedDurationInput = document.getElementById('estimatedDurationInput');
+            const taskText = newTaskInput.value.trim();
+            const estimatedDuration = estimatedDurationInput.value.trim();
+
+            if (!taskText) {
+                showMessage('Por favor, introduce una tarea.', 'error');
+                return;
+            }
+
+            if (!isValidTaskDay(selectedDate)) {
+                showMessage('Solo se pueden añadir tareas los Viernes, Sábados, Domingos y días festivos.', 'warning');
+                return;
+            }
+
+            const newTask = {
+                id: Date.now().toString(), // Unique ID based on timestamp
+                text: taskText,
+                date: formatDate(selectedDate),
+                completed: false,
+                estimatedDuration: estimatedDuration ? parseFloat(estimatedDuration) : null // Store as number or null
+            };
+            tasks.push(newTask);
+            saveTasks();
+            newTaskInput.value = ''; // Clear input
+            estimatedDurationInput.value = ''; // Clear duration input
+            renderTasks(); // Re-render tasks for the current date
+            renderCalendar(); // Update calendar to show task dot
+        }
+
+        // Function to mark/unmark a task as completed
+        function toggleTaskComplete(id) {
+            const taskIndex = tasks.findIndex(task => task.id === id);
+            if (taskIndex > -1) {
+                tasks[taskIndex].completed = !tasks[taskIndex].completed;
+                saveTasks();
+                renderTasks();
+            }
+        }
+
+        // Function to delete a task
+        function deleteTask(id) {
+            tasks = tasks.filter(task => task.id !== id);
+            saveTasks();
+            renderTasks();
+            renderCalendar(); // Update calendar if no more tasks for that day
+        }
+
+        // Initialize the application when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            loadTasks(); // Load tasks at startup
+            selectDate(new Date()); // Select current date by default
+            renderCalendar(); // Render the calendar
+        });
+    </script>
+</body>
+</html>
